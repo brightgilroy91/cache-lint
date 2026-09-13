@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cache-lint"
+version = "0.1.0"
+description = "Check HTTP response headers for caching mistakes from the command line"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "brightgilroy91" }]
+
+[project.scripts]
+cache-lint = "cache_lint.cli:main"
+
+[tool.setuptools]
+packages = ["cache_lint"]
