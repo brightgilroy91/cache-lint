@@ -90,6 +90,47 @@ class ParseHeadersTextTests(unittest.TestCase):
         headers = parse_headers_text(text)
         self.assertEqual(headers["set-cookie"], "a=1, b=2")
 
+    def test_curl_verbose_output_keeps_only_response_headers(self):
+        text = (
+            "*   Trying 93.184.216.34:443...\n"
+            "* Connected to example.com (93.184.216.34) port 443\n"
+            "> GET / HTTP/1.1\n"
+            "> Host: example.com\n"
+            "> User-Agent: curl/8.4.0\n"
+            "> Accept: */*\n"
+            ">\n"
+            "< HTTP/1.1 200 OK\n"
+            "< Cache-Control: public, max-age=3600\n"
+            "< Vary: Accept-Encoding\n"
+            "<\n"
+            "* Connection #0 to host example.com left intact\n"
+            "<html><body>hello</body></html>\n"
+        )
+        headers = parse_headers_text(text)
+        self.assertEqual(
+            headers,
+            {"cache-control": "public, max-age=3600", "vary": "Accept-Encoding"},
+        )
+
+    def test_curl_verbose_output_with_redirect_keeps_final_response_only(self):
+        text = (
+            "> GET / HTTP/1.1\n"
+            "> Host: example.com\n"
+            ">\n"
+            "< HTTP/1.1 301 Moved Permanently\n"
+            "< Location: https://example.com/new\n"
+            "< Cache-Control: max-age=60\n"
+            "<\n"
+            "> GET /new HTTP/1.1\n"
+            "> Host: example.com\n"
+            ">\n"
+            "< HTTP/1.1 200 OK\n"
+            "< Cache-Control: no-store\n"
+            "<\n"
+        )
+        headers = parse_headers_text(text)
+        self.assertEqual(headers, {"cache-control": "no-store"})
+
 
 class FreshnessLifetimePrecedenceTests(unittest.TestCase):
     def test_s_maxage_wins_over_max_age_and_expires(self):

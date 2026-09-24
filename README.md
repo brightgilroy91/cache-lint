@@ -33,6 +33,14 @@ Or pipe them in directly from curl:
 $ curl -sI https://example.com | cache-lint
 ```
 
+`curl -v` output works too - request lines, `*` info lines, and the
+response body are all ignored, and if the transcript includes a redirect
+only the final response's headers are used:
+
+```
+$ curl -v https://example.com 2>&1 | cache-lint
+```
+
 A header set with a real conflict:
 
 ```
@@ -71,4 +79,4 @@ python -m cache_lint headers.txt
 ## Status
 
 Early. Currently understands `Cache-Control`, `Expires`, `Date`, `Age`,
-and `Vary`. See the roadmap for what's planned next.
+and `Vary`, from plain header dumps or `curl -v` transcripts.

@@ -8,9 +8,12 @@ testable with plain dicts and strings.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+
+_STATUS_LINE_RE = re.compile(r"^HTTP/\d(?:\.\d)?\s+\d{3}\b")
 
 
 @dataclass(frozen=True)
@@ -61,16 +64,38 @@ def parse_cache_control(value: str) -> dict[str, str | None]:
 
 
 def parse_headers_text(text: str) -> dict[str, str]:
-    """Parse raw header text (as pasted from devtools or `curl -I`) into a dict.
+    """Parse raw header text into a dict.
 
-    Lines without a colon (status lines, request lines, blank lines) are
-    skipped. Header names are lowercased. Repeated headers are joined
-    with ", " per RFC 9110 semantics.
+    Handles plain "Name: value" dumps (devtools, a saved file, `curl -I`)
+    as well as `curl -v` output, where every line is prefixed with "< "
+    (response), "> " (request) or "* " (info). In verbose mode, request
+    lines and the response body carry no "< " prefix and are discarded
+    outright, so only the response headers make it through.
+
+    If a response block is followed by another status line - as happens
+    with redirects - the earlier block's headers are discarded in favor
+    of the final response, since that's the one whose caching behavior
+    actually matters.
+
+    Header names are lowercased. Repeated headers are joined with ", "
+    per RFC 9110 semantics.
     """
+    lines = text.splitlines()
+    is_verbose = any(line.startswith("< ") or line.startswith("> ") for line in lines)
+
     headers: dict[str, str] = {}
-    for line in text.splitlines():
+    for line in lines:
+        if is_verbose:
+            if not line.startswith("< "):
+                continue
+            line = line[2:]
         line = line.strip()
-        if not line or ":" not in line:
+        if not line:
+            continue
+        if _STATUS_LINE_RE.match(line):
+            headers = {}
+            continue
+        if ":" not in line:
             continue
         name, _, value = line.partition(":")
         name = name.strip().lower()
